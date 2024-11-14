@@ -7,7 +7,7 @@ from llm import ChatGPT
 parser = argparse.ArgumentParser(description='Run LLM with specific parameters.')
 parser.add_argument('--llm_name', type=str, default='gpt-3.5-turbo-1106', help='Name of the language model')
 parser.add_argument('--sample_size', type=int, default=50, help='Sample size for rule generation')
-parser.add_argument('--temperature', type=float, default=0.95, help='Temperature setting for text generation')
+parser.add_argument('--temperature', type=float, default=1.0, help='Temperature setting for text generation')
 
 args = parser.parse_args()
 
