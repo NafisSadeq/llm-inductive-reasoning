@@ -1,0 +1,5 @@
+{
+    "lead_prompt" : "Consider the following input-output examples.\n",
+    "generate_rule": "Based on the example shown above, identify the rule that can be used to convert the input into output. Your output should solely contain the rule.\n",
+    "apply_rule": "The following problem contains a rule and an input. Use the rule to produce the output from the given input. Your output should solely be a valid python list that represents the output. No other text or description should be present.\n" 
+}
