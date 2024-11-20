@@ -40,12 +40,14 @@ if __name__ == '__main__':
     
     
     rule_reward_list = []
+    all_hypo_list = []
     
     for di,datum in tqdm(enumerate(data)):
     
         rule_reward = {}
         score_list = []
         rule_list = []
+        curr_hypo = []
     
         prompt = prompts["lead_prompt"]
         
@@ -80,6 +82,12 @@ if __name__ == '__main__':
     
             score_list.append(score)
             rule_list.append(rule)
+            curr_hypo.append(
+                {
+                    "Rule": rule,
+                    "Score": score
+                }
+            )
     
         sorted_list = list(zip(score_list,rule_list))
         sorted_list.sort(reverse=True)
@@ -100,19 +108,24 @@ if __name__ == '__main__':
                 "role": "user"
             },
             {
-                "content": sorted_list[4][1],
+                "content": sorted_list[-1][1],
                 "role": "assistant"
             }]
     
         rule_reward['score_chosen'] = sorted_list[0][0]
-        rule_reward['score_rejected'] = sorted_list[4][0]
-        print(sorted_list[0][0],sorted_list[4][0])
+        rule_reward['score_rejected'] = sorted_list[-1][0]
+        print(sorted_list[0][0],sorted_list[-1][0])
     
         rule_reward_list.append(rule_reward)
+        all_hypo_list.append(curr_hypo)
     
         with open("./data/"+"rule_reward_set_"+str(sample_size)+"_"+str(temperature)+".json",'w') as outfile:
-            json.dump(rule_reward_list,outfile,indent=4)
-        
+            json.dump(rule_reward_list,outfile,indent=4)   
+        with open("./data/"+"all_hypo_"+str(sample_size)+"_"+str(temperature)+".json",'w') as outfile:
+            json.dump(all_hypo_list,outfile,indent=4)
     
     with open("./data/"+"rule_reward_set_"+str(sample_size)+"_"+str(temperature)+".json",'w') as outfile:
         json.dump(rule_reward_list,outfile,indent=4)
+
+    with open("./data/"+"all_hypo_"+str(sample_size)+"_"+str(temperature)+".json",'w') as outfile:
+        json.dump(all_hypo_list,outfile,indent=4)
