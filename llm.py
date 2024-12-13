@@ -3,6 +3,9 @@ import os
 import time 
 import json
 from openai import OpenAI
+import transformers
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class ChatGPT:
 
@@ -93,3 +96,106 @@ class ChatGPT:
         print("Gen Token Consumption",self.gen_token)
         
         return cost
+
+class LLAMA:
+
+    def __init__(self, model_name):
+
+        self.model_name = model_name
+        self.pipeline = transformers.pipeline(
+            "text-generation",
+            model=model_name,
+            model_kwargs={"torch_dtype": torch.bfloat16},
+            device="cuda",
+        )
+        
+    def generate(self,prompt,sys_prompt=None):
+
+        messages = []
+
+        if(sys_prompt is not None):
+            messages.append({"role": "system", "content": sys_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        processed_prompt = self.pipeline.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+        )
+
+        terminators = [
+            self.pipeline.tokenizer.eos_token_id,
+            self.pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
+        ]
+
+        outputs = self.pipeline(
+            processed_prompt,
+            max_new_tokens=256,
+            eos_token_id=terminators,
+            do_sample=True,
+            temperature=0.6,
+            top_p=0.9,
+        )
+
+        return outputs[0]["generated_text"][len(processed_prompt):]
+
+    def get_cost(self):
+
+        return 0
+
+class LlamaAdapter:
+
+    def __init__(self, model_name,adapter_name=None):
+
+        self.model_name = model_name
+        if(adapter_name is None):
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            ).to("cuda")
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            ).to("cuda")
+            self.model.load_adapter(adapter_name)
+
+    def generate(self,prompt,sys_prompt=None):
+
+        messages = []
+
+        if(sys_prompt is not None):
+            messages.append({"role": "system", "content": sys_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        input_ids = self.tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt"
+        ).to(self.model.device)
+        
+        terminators = [
+            self.tokenizer.eos_token_id,
+            self.tokenizer.convert_tokens_to_ids("<|eot_id|>")
+        ]
+        
+        outputs = self.model.generate(
+            input_ids,
+            max_new_tokens=256,
+            eos_token_id=terminators,
+            do_sample=True,
+            temperature=0.6,
+            top_p=0.9,
+        )
+        response = outputs[0][input_ids.shape[-1]:]
+        
+        return self.tokenizer.decode(response, skip_special_tokens=True)
+
+    def get_cost(self):
+
+        return 0
+                                                                                                                                                                
