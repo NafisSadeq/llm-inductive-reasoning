@@ -1,5 +1,22 @@
 {
-    "lead_prompt" : "Consider the following input-output examples.\n",
-    "generate_rule": "Based on the example shown above, identify the rule that can be used to convert the input into output. Your output should solely contain the rule.\n",
-    "apply_rule": "The following problem contains a rule and an input. Use the rule to produce the output from the given input. Your output should solely be a valid python list that represents the output. No other text or description should be present.\n" 
+    "list_func": {
+        "generate_rule": "Consider the following input-output examples. Both the input and the output is a python list. Based on the example shown below, identify the rule that can be used to convert the input into output. Your output should solely contain the rule.\n",
+        "apply_rule": "The following problem contains a rule and an input. Use the rule to produce the output from the given input. Your output should solely be a valid python list that represents the output. No other text or description should be present.\n"
+    },
+    "1d_arc": {
+        "generate_rule": "Consider the following input-output examples. Both the input and the output is a python list. Based on the example shown below, identify the rule that can be used to convert the input into output. Your output should solely contain the rule.\n",
+        "apply_rule": "The following problem contains a rule and an input. Use the rule to produce the output from the given input. Your output should solely be a valid python list that represents the output. No other text or description should be present.\n"
+    },
+    "sst5": {
+        "generate_rule": "Consider the following input-output examples for sentiment classification. Given a sentence, the output is sentiment ranging from very negative, negative, neutral, positive, very positive. Based on the example shown below, identify the rules that can be used to classify the sentiment from the input. Your output should solely contain the rule not exceeding 100 words.\n",
+        "apply_rule": "The following problem contains a few sentiment classification rules and an input sentence. Use the rules to classify the sentiment of the input sentence. Your output should solely be one of 5 sentiment labels, 'very negative', 'negative', 'neutral', 'positive', 'very positive'. No other text or description should be present.\n"
+    },
+    "acre": {
+        "generate_rule": "Generate a rule that maps the following inputs to their corresponding outputs. Each example is an input-output pair. The input is a list of objects. The presence of certain objects will trigger the light to turn on. The output is either 'on', 'off', or 'undetermined', indicating the state of the light or if the state of the light cannot be determined. Your output should solely contain the rule.\n",
+        "apply_rule": "Generate an output corresponding to the given input based on the following rule. Each example is an input-output pair. The input is a list of objects. The presence of certain objects will trigger the light to turn on. The output is either 'on', 'off', or 'undetermined', indicating the state of the light or if the state of the light cannot be determined.\n"
+    },
+    "scan": {
+        "generate_rule": "Generate rules that map the following inputs to their corresponding outputs. Specify the priority of the rules if necessary. Try to make your rules as minimal and generally applicable as possible.\n",
+        "apply_rule": "Generate an output corresponding to the given input based on the following rules. The output is a sequence of tokens joined by spaces.\n"
+    }
 }

@@ -57,6 +57,10 @@ class ChatGPT:
         elif(self.model_name=="gpt-4-vision-preview"):
             self.prompt_token_cost=10
             self.gen_token_cost=30
+
+        elif(self.model_name=="gpt-4o"):
+            self.prompt_token_cost=2.5
+            self.gen_token_cost=10
             
 
     def generate(self,prompt,sys_prompt=None,temperature=1.0):
@@ -92,8 +96,8 @@ class ChatGPT:
         
         cost = (self.prompt_token_cost*self.prompt_token+self.gen_token_cost*self.gen_token)/1000000
 
-        print("Prompt Token Consumption",self.prompt_token)
-        print("Gen Token Consumption",self.gen_token)
+        # print("Prompt Token Consumption",self.prompt_token)
+        # print("Gen Token Consumption",self.gen_token)
         
         return cost
 
@@ -187,6 +191,7 @@ class LlamaAdapter:
             input_ids,
             max_new_tokens=256,
             eos_token_id=terminators,
+            pad_token_id=self.tokenizer.eos_token_id,
             do_sample=True,
             temperature=0.6,
             top_p=0.9,
@@ -194,6 +199,98 @@ class LlamaAdapter:
         response = outputs[0][input_ids.shape[-1]:]
         
         return self.tokenizer.decode(response, skip_special_tokens=True)
+
+    def get_cost(self):
+
+        return 0
+
+class Qwen:
+
+    def __init__(self, model_name):
+
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype="auto",
+            device_map="auto"
+        ).to("cuda")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        
+    def generate(self,prompt,sys_prompt=None):
+
+        messages = [
+            {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
+        
+        generated_ids = self.model.generate(
+            **model_inputs,
+            max_new_tokens=512
+        )
+        generated_ids = [
+            output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+        return response
+
+    def get_cost(self):
+
+        return 0
+
+class QwenAdapter:
+
+    def __init__(self, model_name,adapter_name=None):
+
+        self.model_name = model_name
+        if(adapter_name is None):
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            ).to("cuda")
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            ).to("cuda")
+            self.model.load_adapter(adapter_name)
+
+    def generate(self,prompt,sys_prompt=None):
+
+        messages = [
+            {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
+        
+        generated_ids = self.model.generate(
+            **model_inputs,
+            max_new_tokens=512
+        )
+        generated_ids = [
+            output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+        return response
 
     def get_cost(self):
 

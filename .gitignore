@@ -2,5 +2,6 @@ __pycache__/
 .ipynb_checkpoints
 */.ipynb_checkpoints
 **/.ipynb_checkpoints
-llama-3-dpo/
+data/*/gpt*
+models/
 outputs/

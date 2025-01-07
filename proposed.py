@@ -1,9 +1,18 @@
 import json
-from llm import ChatGPT,LLAMA,LlamaAdapter
+from llm import ChatGPT,LLAMA,LlamaAdapter,Qwen, QwenAdapter
 import re
+import argparse
 
-llm_name = "meta-llama/Meta-Llama-3-8B-Instruct"
-adapter_name = "llama-3-dpo/checkpoint-8436"
+parser = argparse.ArgumentParser(description='Run LLM with specific parameters.')
+parser.add_argument('--llm_name', type=str, default="meta-llama/Meta-Llama-3-8B-Instruct",choices=[
+    'meta-llama/Meta-Llama-3-8B-Instruct',
+    'mistralai/Mistral-7B-Instruct-v0.3', 
+    'Qwen/Qwen2.5-7B-Instruct'
+], help='Name of the language model')
+
+args = parser.parse_args()
+
+llm_name = args.llm_name
 
 def extract_list_substring(input_string):
 
@@ -13,7 +22,18 @@ def extract_list_substring(input_string):
         return match.group(0)
     return None
 
-llm = LlamaAdapter(llm_name,adapter_name)
+if(llm_name.startswith("Qwen")):
+    adapter_name = "qwen_dpo"
+    llm = QwenAdapter(llm_name,adapter_name)
+    llm_tag = "qwen"
+elif(llm_name.startswith("meta")):
+    adapter_name = "llama-3-dpo/checkpoint-8436"
+    llm = LlamaAdapter(llm_name,adapter_name)
+    llm_tag = "llama3"
+else:
+    adapter_name = "mistral_dpo"
+    llm = LlamaAdapter(llm_name,adapter_name)
+    llm_tag = "mistral"
 
 data = []
 with open("./data/list_function.jsonl",'r') as infile:
@@ -58,5 +78,5 @@ for di,datum in enumerate(data):
 
 print("Accuracy:",round(num_corr/num_test,2))
 
-with open("./outputs/"+"proposed.json",'w') as outfile:
+with open("./outputs/"+llm_tag+"_proposed.json",'w') as outfile:
     json.dump(data,outfile,indent=4)
