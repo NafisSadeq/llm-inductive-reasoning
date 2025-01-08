@@ -21,7 +21,7 @@ parser.add_argument('--task', type=str, default="list_func",choices=[
     'acre', 
     'scan'
 ], help='Task Name')
-parser.add_argument('--hypo_size', type=int, default=50, help='Hypothesis sample size for rule generation')
+parser.add_argument('--hypo_size', type=int, default=10, help='Hypothesis sample size for rule generation')
 parser.add_argument('--temperature', type=float, default=1.0, help='Temperature setting for text generation')
 
 args = parser.parse_args()
@@ -79,6 +79,7 @@ def process_split(data_split,split_name):
 
     rule_reward_list = []
     all_hypo_list = []
+    rule_application_list = []
     
     for di,datum in enumerate(tqdm(data_split)):
     
@@ -104,6 +105,14 @@ def process_split(data_split,split_name):
                 test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
                 test_prompt = test_prompt+ "Input: "+ str(example['input'])+"\n"
                 response = llm.generate(test_prompt, temperature=temperature)
+
+                rule_application_list.append(
+                    {
+                        "prompt": test_prompt,
+                        "response": response
+                    }
+                )
+                
                 if(task=="list_func" or task=="1d_arc"):
                     prediction = extract_list_substring(response)
                 else:
@@ -157,12 +166,17 @@ def process_split(data_split,split_name):
             json.dump(rule_reward_list,outfile,indent=4)   
         with open(output_dir+"/all_hypo_"+str(split_name)+"_"+str(hypo_size)+"_"+str(temperature)+".json",'w') as outfile:
             json.dump(all_hypo_list,outfile,indent=4)
+        with open(output_dir+"/rule_apply_"+str(split_name)+"_"+str(hypo_size)+"_"+str(temperature)+".json",'w') as outfile:
+            json.dump(rule_application_list,outfile,indent=4)
     
     with open(output_dir+"/rule_reward_set_"+str(split_name)+"_"+str(hypo_size)+"_"+str(temperature)+".json",'w') as outfile:
         json.dump(rule_reward_list,outfile,indent=4)
     
     with open(output_dir+"/all_hypo_"+str(split_name)+"_"+str(hypo_size)+"_"+str(temperature)+".json",'w') as outfile:
         json.dump(all_hypo_list,outfile,indent=4)
+
+    with open(output_dir+"/rule_apply_"+str(split_name)+"_"+str(hypo_size)+"_"+str(temperature)+".json",'w') as outfile:
+        json.dump(rule_application_list,outfile,indent=4)
 
 train_len = int(len(data)*0.9)
 
