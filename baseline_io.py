@@ -14,22 +14,23 @@ parser.add_argument('--llm_name', type=str, default="meta-llama/Meta-Llama-3-8B-
     'gpt-3.5-turbo-1106',
     'gpt-4o'
 ], help='Name of the language model')
-parser.add_argument('--adapter_path', type=str, help='Name or path of Lora adapter')
 parser.add_argument('--task', type=str, default="list_func",choices=[
     'list_func',
     '1d_arc', 
     'acre', 
     'scan'
 ], help='Task Name')
-parser.add_argument('--hypo_size', type=int, default=5, help='Hypothesis sample size for rule generation')
+parser.add_argument('--adapter_path', type=str, required = False, help='Name or path of Lora adapter')
 
 args = parser.parse_args()
 random.seed(10)
 
 llm_name = args.llm_name
-adapter_name = args.adapter_path
+if(args.adapter_path):
+    adapter_name = args.adapter_path
+else:
+    adapter_name = None
 task = args.task
-hypo_size = args.hypo_size
 
 if(llm_name.startswith("Qwen")):
     llm = QwenAdapter(llm_name,adapter_name)
@@ -74,7 +75,7 @@ print("# sample",len(data))
 
 for di,datum in enumerate(tqdm(data)):
 
-    prompt = prompts[task]["generate_rule"]
+    prompt = prompts[task]["direct_fewshot1"]
     
     for example in datum['train']:
         prompt += "\n"
@@ -82,36 +83,9 @@ for di,datum in enumerate(tqdm(data)):
         prompt += "Output: "+ str(example['output'])+"\n"
     
     prompt += "\n"
-
-    rule_list = []
-    rule_score_list = []
-    for ri in range(hypo_size):
-        rule = llm.generate(prompt)
-        
-        rule_score = 0
-        for ei,example in enumerate(datum['train']):
-            test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
-            test_prompt = test_prompt+ "Input: "+ str(example['input'])+"\n"
-            response = llm.generate(test_prompt)
-            if(task=="list_func" or task=="1d_arc"):
-                prediction = extract_list_substring(response)
-            else:
-                prediction = response
-        
-            if(prediction is not None and prediction==example['output']):
-                rule_score+=1
-            rule_list.append(rule)
-            rule_score_list.append(rule_score)
-
-    sorted_list = list(zip(rule_score_list,rule_list))
-    sorted_list.sort(reverse=True)
-    rule = sorted_list[0][1]
-    rule_score = sorted_list[0][0]
-    print(rule_score,len(datum['train']))
-    print(rule)
     
     for ei,example in enumerate(datum['test']):
-        test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
+        test_prompt = prompt + prompts[task]["direct_fewshot2"]+"\n"
         test_prompt = test_prompt+ "Input: "+ str(example['input'])+"\n"
         response = llm.generate(test_prompt)
         if(task=="list_func" or task=="1d_arc"):
@@ -123,7 +97,6 @@ for di,datum in enumerate(tqdm(data)):
         num_test+=1
         if(prediction is not None and prediction==example['output']):
             num_corr+=1
-        data[di]['test'][ei]["ir-rule"] = rule
         data[di]['test'][ei]["ir-output"] = prediction
 
 print("Accuracy:",round(num_corr/num_test,2))

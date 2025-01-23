@@ -14,20 +14,19 @@ parser.add_argument('--llm_name', type=str, default="meta-llama/Meta-Llama-3-8B-
     'gpt-3.5-turbo-1106',
     'gpt-4o'
 ], help='Name of the language model')
-parser.add_argument('--adapter_path', type=str, help='Name or path of Lora adapter')
 parser.add_argument('--task', type=str, default="list_func",choices=[
     'list_func',
     '1d_arc', 
     'acre', 
     'scan'
 ], help='Task Name')
-parser.add_argument('--hypo_size', type=int, default=5, help='Hypothesis sample size for rule generation')
+parser.add_argument('--hypo_size', type=int, default=1, help='Hypothesis sample size for rule generation')
 
 args = parser.parse_args()
 random.seed(10)
 
 llm_name = args.llm_name
-adapter_name = args.adapter_path
+adapter_name = None
 task = args.task
 hypo_size = args.hypo_size
 

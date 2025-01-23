@@ -1,10 +1,10 @@
-import openai
 import os
-import time 
 import json
-from openai import OpenAI
-import transformers
+import time 
 import torch
+import openai
+import transformers
+from openai import OpenAI
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class ChatGPT:
