@@ -1,6 +1,7 @@
 import os
 import json
 import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
 
 def save_score_dist(score_list,save_path):
     
@@ -9,12 +10,12 @@ def save_score_dist(score_list,save_path):
     plt.xlabel('Value')
     plt.ylabel('Frequency')
     
-    plt.xlim(0, max(score_list+[5]))
+    plt.xlim(0, max(score_list+[5])+1)
     
     plt.savefig(save_path)
     plt.clf()
 
-def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file):
+def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file,score_diff):
 
     with open(dir_loc+"/"+rule_reward_file,'r') as file:
         rule_reward_orig = json.load(file)
@@ -28,6 +29,8 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file):
     kto_list = []
     apply_rule_list = []
     generate_rule_list = []
+    high_quality_rules = set()
+    unique_rules = set()
     
     for rule_reward, all_hypo in zip(rule_reward_orig,all_hypo_list):
         
@@ -35,7 +38,11 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file):
         score_rule_list = []
         
         for hypo in all_hypo:
-            score_rule_list.append((hypo['Score'],hypo['Rule']))
+            if hypo['Rule'] not in unique_rules:
+                unique_rules.add(hypo['Rule'])
+                score_rule_list.append((hypo['Score'],hypo['Rule']))
+            else:
+                continue
             
         score_rule_list.sort(reverse=True)
         kto_count = 0
@@ -78,7 +85,7 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file):
             
             for score_rule_y in score_rule_list:
                 
-                if(score_rule_x[0]>(score_rule_y[0])):
+                if(score_rule_x[0]>(score_rule_y[0]+score_diff)):
     
                     sharegpt_pair = {}
                     chosen_rule = score_rule_x[1]
@@ -107,6 +114,7 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file):
                     }
     
                     sharegpt_pair_list.append(sharegpt_pair)
+                    high_quality_rules.add(chosen_rule)
 
     save_score_dist(scores_chosen,dir_loc+"/chosen.png")
     save_score_dist(scores_rejected,dir_loc+"/rejected.png")
@@ -114,20 +122,24 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file):
     with open(dir_loc+"/"+apply_rule_file,'r') as file:
         apply_prompt_response_list = json.load(file)
 
-    for prompt_response in apply_prompt_response_list:
+    for prompt_response in tqdm(apply_prompt_response_list):
         prompt = prompt_response["prompt"]
         response = prompt_response["response"]
         isi = prompt.find("Input:")
         instruction = prompt[:isi]
         input_content = prompt[isi:]
 
-        apply_rule_list.append(
-            {
-                "instruction": instruction,
-                "input": input_content,
-                "output": response
-            }
-        )
+        for rule in high_quality_rules:
+
+            if(rule in prompt):
+                apply_rule_list.append(
+                    {
+                        "instruction": instruction,
+                        "input": input_content,
+                        "output": response
+                    }
+                )
+                break
 
     print(dir_loc,len(sharegpt_pair_list),len(kto_list),len(generate_rule_list),len(apply_rule_list))
 
@@ -136,27 +148,31 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file):
 task_data_locs = [
     (
     "./data/1d_arc/gpt-4",
-    "rule_reward_set_train_5_1.0.json",
-    "all_hypo_train_5_1.0.json",
-    "rule_apply_train_5_1.0.json"
+    "rule_reward_set_train_25_1.0.json",
+    "all_hypo_train_25_1.0.json",
+    "rule_apply_train_25_1.0.json",
+    1
     ),
     (
     "./data/acre/gpt-4",
-    "rule_reward_set_train_10_1.0.json",
-    "all_hypo_train_10_1.0.json",
-    "rule_apply_train_10_1.0.json"
+    "rule_reward_set_train_50_1.0.json",
+    "all_hypo_train_50_1.0.json",
+    "rule_apply_train_50_1.0.json",
+    2
     ),
     (
     "./data/list_func/gpt-4",
-    "rule_reward_set_train_10_1.0.json",
-    "all_hypo_train_10_1.0.json",
-    "rule_apply_train_10_1.0.json"
+    "rule_reward_set_train_50_1.0.json",
+    "all_hypo_train_50_1.0.json",
+    "rule_apply_train_50_1.0.json",
+    3
     ),
     (
     "./data/scan/gpt-4",
-    "rule_reward_set_train_10_1.0.json",
-    "all_hypo_train_10_1.0.json",
-    "rule_apply_train_10_1.0.json"
+    "rule_reward_set_train_50_1.0.json",
+    "all_hypo_train_50_1.0.json",
+    "rule_apply_train_50_1.0.json",
+    4
     )
 ]
 
@@ -167,7 +183,7 @@ apply_rule_list = []
 
 for task_data in task_data_locs:
 
-    spl, kl, grl, arl = construct_dataset(task_data[0],task_data[1],task_data[2],task_data[3])
+    spl, kl, grl, arl = construct_dataset(task_data[0],task_data[1],task_data[2],task_data[3],task_data[4])
     sharegpt_pair_list += spl
     kto_list += kl
     generate_rule_list += grl
@@ -199,10 +215,9 @@ few_shot_sft = []
 
 for file_path in few_shot_sft_files:
     with open(file_path,'r') as infile:
-
-        few_shot_sft += json.load(infile)
-
-print(len(few_shot_sft))
+        content = json.load(infile)
+        print(file_path,len(content))
+        few_shot_sft += content
 
 with open("data/merged/fewshot_io_sft.json",'w') as file:
     json.dump(few_shot_sft,file,indent=4)

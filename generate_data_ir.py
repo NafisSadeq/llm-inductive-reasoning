@@ -6,9 +6,8 @@ from tqdm.auto import tqdm
 from utils import extract_list_substring
 from llm import ChatGPT, LlamaAdapter, QwenAdapter
 
-
 parser = argparse.ArgumentParser(description='Run LLM with specific parameters.')
-parser.add_argument('--llm_name', type=str, default='gpt-3.5-turbo-1106',choices=[
+parser.add_argument('--llm_name', type=str, default='gpt-4o',choices=[
     'meta-llama/Meta-Llama-3-8B-Instruct',
     'mistralai/Mistral-7B-Instruct-v0.3', 
     'Qwen/Qwen2.5-7B-Instruct',
@@ -21,7 +20,7 @@ parser.add_argument('--task', type=str, default="list_func",choices=[
     'acre', 
     'scan'
 ], help='Task Name')
-parser.add_argument('--hypo_size', type=int, default=10, help='Hypothesis sample size for rule generation')
+parser.add_argument('--hypo_size', type=int, default=50, help='Hypothesis sample size for rule generation')
 parser.add_argument('--temperature', type=float, default=1.0, help='Temperature setting for text generation')
 
 args = parser.parse_args()
@@ -49,14 +48,19 @@ else:
 
 if(task == "list_func"):
     data_path = "./data/list_func/list_function.jsonl"
+    test_data_path = "./data/list_func/list_function_test.jsonl"
 elif(task == "1d_arc"):
     data_path = "./data/1d_arc/1D_arc.jsonl"
+    test_data_path = "./data/1d_arc/1D_arc_test.jsonl"
 elif(task == "acre"):
     data_path = "./data/acre/acre.jsonl"
+    test_data_path = "./data/acre/acre_test.jsonl"
 elif(task == "scan"):
     data_path = "./data/scan/scan.jsonl"
+    test_data_path = "./data/scan/scan_test.jsonl"
 else:
     data_path = None
+    test_data_path = None
 
 data = []
 with open(data_path,'r') as infile:
@@ -98,8 +102,10 @@ def process_split(data_split,split_name):
         rule_reward = {}
         
         for ri in range(hypo_size):
-            rule = llm.generate(prompt, temperature=temperature)
-            
+            try:
+                rule = llm.generate(prompt, temperature=temperature)
+            except:
+                continue
             rule_score = 0
             for ei,example in enumerate(datum['train']):
                 test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
@@ -179,6 +185,11 @@ def process_split(data_split,split_name):
         json.dump(rule_application_list,outfile,indent=4)
 
 train_len = int(len(data)*0.9)
+
+with open(test_data_path, 'w') as outfile:
+    for entry in data[train_len:]:
+        json.dump(entry, outfile)
+        outfile.write('\n')
 
 process_split(data[:train_len],"train")
 process_split(data[train_len:],"valid")

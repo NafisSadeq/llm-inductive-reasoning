@@ -6,3 +6,4 @@ data/*/gpt*
 data/merged
 models/
 outputs/
+*.sh

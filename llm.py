@@ -83,7 +83,7 @@ class ChatGPT:
             response_object = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=message_list,
-                temperature = self.temperature
+                temperature = temperature
                 )
 
         response = response_object.choices[0].message.content
@@ -137,8 +137,8 @@ class LLAMA:
             max_new_tokens=256,
             eos_token_id=terminators,
             do_sample=True,
-            temperature=0.6,
-            top_p=0.9,
+            temperature=1.0,
+            top_p=1.0
         )
 
         return outputs[0]["generated_text"][len(processed_prompt):]
@@ -168,7 +168,7 @@ class LlamaAdapter:
             ).to("cuda")
             self.model.load_adapter(adapter_name)
 
-    def generate(self,prompt,sys_prompt=None):
+    def generate(self,prompt,sys_prompt=None,temperature=1.0):
 
         messages = []
 
@@ -193,8 +193,8 @@ class LlamaAdapter:
             eos_token_id=terminators,
             pad_token_id=self.tokenizer.eos_token_id,
             do_sample=True,
-            temperature=0.6,
-            top_p=0.9,
+            temperature=temperature,
+            top_p=1.0
         )
         response = outputs[0][input_ids.shape[-1]:]
         
@@ -231,7 +231,9 @@ class Qwen:
         
         generated_ids = self.model.generate(
             **model_inputs,
-            max_new_tokens=512
+            max_new_tokens=512,
+            temperature=1.0,
+            top_p=1.0
         )
         generated_ids = [
             output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
@@ -266,7 +268,7 @@ class QwenAdapter:
             ).to("cuda")
             self.model.load_adapter(adapter_name)
 
-    def generate(self,prompt,sys_prompt=None):
+    def generate(self,prompt,sys_prompt=None,temperature=1.0):
 
         messages = [
             {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
@@ -282,7 +284,9 @@ class QwenAdapter:
         
         generated_ids = self.model.generate(
             **model_inputs,
-            max_new_tokens=512
+            max_new_tokens=512,
+            temperature=temperature,
+            top_p=1.0
         )
         generated_ids = [
             output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)

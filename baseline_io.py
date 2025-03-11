@@ -92,19 +92,23 @@ for di,datum in enumerate(tqdm(data)):
             prediction = extract_list_substring(response)
         else:
             prediction = response
-        #print("Ground truth:",example['output'])
-        #print("Prediction:",prediction)
         num_test+=1
         if(prediction is not None and prediction==example['output']):
             num_corr+=1
-        data[di]['test'][ei]["ir-output"] = prediction
 
-print("Accuracy:",round(num_corr/num_test,2))
+accuracy = round(num_corr/num_test,3)
 
-output_dir = "./outputs/"+task+"/"+llm_tag
+print("Accuracy:",accuracy)
+
+output_dir = "./outputs"
 
 if(not os.path.exists(output_dir)):
     os.makedirs(output_dir)
-    
-# with open(output_dir+"/baseline_ir_prompt.json",'w') as outfile:
-#     json.dump(data,outfile,indent=4)
+
+file_prefix = "baseline_io_"+llm_tag+"_"+task
+if(args.adapter_path):
+    file_prefix += "_sft"
+
+with open(output_dir+"/"+file_prefix+".log",'a') as outfile:
+    outfile.write("Accuracy: "+str(accuracy)+"\n")
+    outfile.write("\n")

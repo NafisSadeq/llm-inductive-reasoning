@@ -14,7 +14,7 @@ parser.add_argument('--llm_name', type=str, default="meta-llama/Meta-Llama-3-8B-
     'gpt-3.5-turbo-1106',
     'gpt-4o'
 ], help='Name of the language model')
-parser.add_argument('--adapter_path', type=str, help='Name or path of Lora adapter')
+parser.add_argument('--adapter_path', type=str, help='Name or path of adapter')
 parser.add_argument('--task', type=str, default="list_func",choices=[
     'list_func',
     '1d_arc', 
@@ -27,31 +27,33 @@ args = parser.parse_args()
 random.seed(10)
 
 llm_name = args.llm_name
-adapter_name = args.adapter_path
+adapter_path = args.adapter_path
 task = args.task
 hypo_size = args.hypo_size
 
 if(llm_name.startswith("Qwen")):
-    llm = QwenAdapter(llm_name,adapter_name)
+    llm = QwenAdapter(llm_name,adapter_path)
     llm_tag = "qwen"
 elif(llm_name.startswith("meta")):
-    llm = LlamaAdapter(llm_name,adapter_name)
+    llm = LlamaAdapter(llm_name,adapter_path)
     llm_tag = "llama3"
 elif(llm_name.startswith("mistralai")):
-    llm = LlamaAdapter(llm_name,adapter_name)
+    llm = LlamaAdapter(llm_name,adapter_path)
     llm_tag = "mistral"
 else:
     llm = ChatGPT(llm_name)
     llm_tag = llm_name[:5]
 
+adapter_tag = adapter_path.split("/")[-3]
+
 if(task == "list_func"):
-    data_path = "./data/list_func/list_function.jsonl"
+    data_path = "./data/list_func/list_function_test.jsonl"
 elif(task == "1d_arc"):
-    data_path = "./data/1d_arc/1D_arc.jsonl"
+    data_path = "./data/1d_arc/1D_arc_test.jsonl"
 elif(task == "acre"):
-    data_path = "./data/acre/acre.jsonl"
+    data_path = "./data/acre/acre_test.jsonl"
 elif(task == "scan"):
-    data_path = "./data/scan/scan.jsonl"
+    data_path = "./data/scan/scan_test.jsonl"
 else:
     data_path = None
 
@@ -59,10 +61,6 @@ data = []
 with open(data_path,'r') as infile:
     for line in infile:
         data.append(eval(line.strip()))
-
-random.shuffle(data)
-train_len = int(len(data)*0.9)
-data = data[train_len:]
 
 with open("./config/prompts.json",'r') as infile:
     prompts = json.load(infile)
@@ -92,7 +90,7 @@ for di,datum in enumerate(tqdm(data)):
         for ei,example in enumerate(datum['train']):
             test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
             test_prompt = test_prompt+ "Input: "+ str(example['input'])+"\n"
-            response = llm.generate(test_prompt)
+            response = llm.generate(test_prompt,temperature=0.8)
             if(task=="list_func" or task=="1d_arc"):
                 prediction = extract_list_substring(response)
             else:
@@ -107,31 +105,33 @@ for di,datum in enumerate(tqdm(data)):
     sorted_list.sort(reverse=True)
     rule = sorted_list[0][1]
     rule_score = sorted_list[0][0]
-    print(rule_score,len(datum['train']))
-    print(rule)
-    
+       
     for ei,example in enumerate(datum['test']):
         test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
         test_prompt = test_prompt+ "Input: "+ str(example['input'])+"\n"
-        response = llm.generate(test_prompt)
+        response = llm.generate(test_prompt,temperature=0.8)
         if(task=="list_func" or task=="1d_arc"):
             prediction = extract_list_substring(response)
         else:
             prediction = response
-        #print("Ground truth:",example['output'])
-        #print("Prediction:",prediction)
+       
         num_test+=1
         if(prediction is not None and prediction==example['output']):
             num_corr+=1
         data[di]['test'][ei]["ir-rule"] = rule
         data[di]['test'][ei]["ir-output"] = prediction
 
-print("Accuracy:",round(num_corr/num_test,2))
+accuracy = round(num_corr/num_test,3)
 
-output_dir = "./outputs/"+task+"/"+llm_tag
+print("Accuracy:",accuracy)
+
+output_dir = "./outputs"
 
 if(not os.path.exists(output_dir)):
     os.makedirs(output_dir)
-    
-# with open(output_dir+"/baseline_ir_prompt.json",'w') as outfile:
-#     json.dump(data,outfile,indent=4)
+
+file_prefix = "proposed_"+llm_tag+"_"+adapter_tag+"_"+task+"_"+str(hypo_size)
+
+with open(output_dir+"/"+file_prefix+".log",'a') as outfile:
+    outfile.write("Accuracy: "+str(accuracy)+"\n")
+    outfile.write("\n")
