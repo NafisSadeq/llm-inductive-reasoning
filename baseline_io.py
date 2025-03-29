@@ -4,7 +4,7 @@ import random
 import argparse
 from tqdm.auto import tqdm
 from utils import extract_list_substring
-from llm import ChatGPT, LlamaAdapter, QwenAdapter
+from llm import ChatGPT,DEEPSEEK, LlamaAdapter, QwenAdapter
 
 parser = argparse.ArgumentParser(description='Run LLM with specific parameters.')
 parser.add_argument('--llm_name', type=str, default="meta-llama/Meta-Llama-3-8B-Instruct",choices=[
@@ -12,7 +12,10 @@ parser.add_argument('--llm_name', type=str, default="meta-llama/Meta-Llama-3-8B-
     'mistralai/Mistral-7B-Instruct-v0.3', 
     'Qwen/Qwen2.5-7B-Instruct',
     'gpt-3.5-turbo-1106',
-    'gpt-4o'
+    'gpt-4o',
+    'o1',
+    'deepseek-chat',
+    'deepseek-reasoner'
 ], help='Name of the language model')
 parser.add_argument('--task', type=str, default="list_func",choices=[
     'list_func',
@@ -41,6 +44,9 @@ elif(llm_name.startswith("meta")):
 elif(llm_name.startswith("mistralai")):
     llm = LlamaAdapter(llm_name,adapter_name)
     llm_tag = "mistral"
+elif(llm_name.startswith("deepseek")):
+    llm = DEEPSEEK(llm_name)
+    llm_tag = "deepseek"
 else:
     llm = ChatGPT(llm_name)
     llm_tag = llm_name[:5]
@@ -99,6 +105,7 @@ for di,datum in enumerate(tqdm(data)):
 accuracy = round(num_corr/num_test,3)
 
 print("Accuracy:",accuracy)
+print("Cost:",llm.get_cost())
 
 output_dir = "./outputs"
 

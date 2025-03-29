@@ -2,20 +2,50 @@ import os
 import json
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
+import numpy as np
+from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import MaxNLocator
+import seaborn as sns
+from scipy.stats import pearsonr
 
-def save_score_dist(score_list,save_path):
-    
-    plt.hist(score_list, bins=range(11), edgecolor='black')
+def print_correlation_length_quality(hyp_lengths, hyp_qualities, task_name, dir_loc):
  
-    plt.xlabel('Value')
-    plt.ylabel('Frequency')
-    
-    plt.xlim(0, max(score_list+[5])+1)
-    
+    assert len(hyp_lengths) == len(hyp_qualities), "Both lists must have the same length"
+
+    corr, _ = pearsonr(hyp_qualities, hyp_lengths)
+    print(task_name,"pearson hypothesis length vs quality",corr)
+
+
+def save_score_dist(scores_chosen, scores_rejected, save_path, ymax, xmax):
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5), sharey=True)
+
+    formatter = FuncFormatter(lambda x, _: f'{int(x/1000)}k')
+
+    # Plot for chosen scores
+    axes[0].hist(scores_rejected, bins=range(11), edgecolor='black')
+    axes[0].set_xlabel('Rejected Score', fontsize=24)
+    axes[0].set_ylabel('Frequency', fontsize=24)
+    axes[0].set_xlim(0, xmax)
+    axes[0].set_ylim(0, ymax)
+    axes[0].yaxis.set_major_formatter(formatter)
+    axes[0].tick_params(axis='both', labelsize=20)
+    axes[0].xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+    # Plot for rejected scores
+    axes[1].hist(scores_chosen, bins=range(11), edgecolor='black')
+    axes[1].set_xlabel('Chosen Score', fontsize=24)
+    axes[1].set_xlim(0, xmax)
+    axes[1].tick_params(axis='both', labelsize=24)
+    axes[1].yaxis.set_major_formatter(formatter)
+    axes[1].tick_params(axis='both', labelsize=20)
+    axes[1].xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    plt.tight_layout()
     plt.savefig(save_path)
     plt.clf()
 
-def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file,score_diff):
+def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file,score_diff,task_name):
 
     with open(dir_loc+"/"+rule_reward_file,'r') as file:
         rule_reward_orig = json.load(file)
@@ -31,6 +61,9 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file,sco
     generate_rule_list = []
     high_quality_rules = set()
     unique_rules = set()
+
+    all_score_list = []
+    all_rule_len = []
     
     for rule_reward, all_hypo in zip(rule_reward_orig,all_hypo_list):
         
@@ -41,6 +74,8 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file,sco
             if hypo['Rule'] not in unique_rules:
                 unique_rules.add(hypo['Rule'])
                 score_rule_list.append((hypo['Score'],hypo['Rule']))
+                all_score_list.append(hypo['Score'])
+                all_rule_len.append(len(hypo['Rule'].split()))
             else:
                 continue
             
@@ -116,8 +151,16 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file,sco
                     sharegpt_pair_list.append(sharegpt_pair)
                     high_quality_rules.add(chosen_rule)
 
-    save_score_dist(scores_chosen,dir_loc+"/chosen.png")
-    save_score_dist(scores_rejected,dir_loc+"/rejected.png")
+    hist1, _ = np.histogram(scores_chosen, bins=range(11))
+    hist2, _ = np.histogram(scores_rejected, bins=range(11))
+    max_freq = max(hist1.max(), hist2.max())
+    max_example = min(max(scores_chosen + scores_rejected + [5]) + 1,12)
+
+    max_score = max(all_score_list)
+    all_score_list = [x/max_score for x in all_score_list]
+    
+    save_score_dist(scores_chosen, scores_rejected, dir_loc + "/"+task_name+"_scores.png", max_freq, max_example)
+    print_correlation_length_quality(all_rule_len, all_score_list, task_name, dir_loc)
 
     with open(dir_loc+"/"+apply_rule_file,'r') as file:
         apply_prompt_response_list = json.load(file)
@@ -143,7 +186,7 @@ def construct_dataset(dir_loc,rule_reward_file,all_hypo_file,apply_rule_file,sco
 
     print(dir_loc,len(sharegpt_pair_list),len(kto_list),len(generate_rule_list),len(apply_rule_list))
 
-    return sharegpt_pair_list, kto_list, generate_rule_list, apply_rule_list
+    return sharegpt_pair_list, kto_list, generate_rule_list, apply_rule_list,all_rule_len,all_score_list
 
 task_data_locs = [
     (
@@ -151,28 +194,32 @@ task_data_locs = [
     "rule_reward_set_train_25_1.0.json",
     "all_hypo_train_25_1.0.json",
     "rule_apply_train_25_1.0.json",
-    1
+    1,
+    "1D_ARC"
     ),
     (
     "./data/acre/gpt-4",
     "rule_reward_set_train_50_1.0.json",
     "all_hypo_train_50_1.0.json",
     "rule_apply_train_50_1.0.json",
-    2
+    2,
+    "ACRE"
     ),
     (
     "./data/list_func/gpt-4",
     "rule_reward_set_train_50_1.0.json",
     "all_hypo_train_50_1.0.json",
     "rule_apply_train_50_1.0.json",
-    3
+    3,
+    "List_Function"
     ),
     (
     "./data/scan/gpt-4",
     "rule_reward_set_train_50_1.0.json",
     "all_hypo_train_50_1.0.json",
     "rule_apply_train_50_1.0.json",
-    4
+    4,
+    "MiniSCAN"
     )
 ]
 
@@ -180,14 +227,21 @@ sharegpt_pair_list = []
 kto_list = []
 generate_rule_list = []
 apply_rule_list = []
+hyp_lengths = []
+hyp_qualities = []
 
 for task_data in task_data_locs:
 
-    spl, kl, grl, arl = construct_dataset(task_data[0],task_data[1],task_data[2],task_data[3],task_data[4])
+    spl, kl, grl, arl,hl,hq = construct_dataset(task_data[0],task_data[1],task_data[2],task_data[3],task_data[4],task_data[5])
     sharegpt_pair_list += spl
     kto_list += kl
     generate_rule_list += grl
     apply_rule_list += arl
+    hyp_lengths += hl
+    hyp_qualities += hq
+
+corr, _ = pearsonr(hyp_qualities, hyp_lengths)
+print("All","pearson hypothesis length vs quality",corr)
 
 if(not os.path.exists("./data/merged")):
     os.makedirs("./data/merged")

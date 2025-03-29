@@ -22,6 +22,8 @@ parser.add_argument('--task', type=str, default="list_func",choices=[
     'scan'
 ], help='Task Name')
 parser.add_argument('--hypo_size', type=int, default=5, help='Hypothesis sample size for rule generation')
+parser.add_argument('--rg_temp', type=float, default=1.0, help='Temperature for rule generation')
+parser.add_argument('--rf_temp', type=float, default=0.6, help='Temperature for rule generation')
 
 args = parser.parse_args()
 random.seed(10)
@@ -30,6 +32,8 @@ llm_name = args.llm_name
 adapter_path = args.adapter_path
 task = args.task
 hypo_size = args.hypo_size
+rg_temp = args.rg_temp
+rf_temp = args.rf_temp
 
 if(llm_name.startswith("Qwen")):
     llm = QwenAdapter(llm_name,adapter_path)
@@ -84,13 +88,12 @@ for di,datum in enumerate(tqdm(data)):
     rule_list = []
     rule_score_list = []
     for ri in range(hypo_size):
-        rule = llm.generate(prompt)
-        
+        rule = llm.generate(prompt,temperature=rg_temp)
         rule_score = 0
         for ei,example in enumerate(datum['train']):
             test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
             test_prompt = test_prompt+ "Input: "+ str(example['input'])+"\n"
-            response = llm.generate(test_prompt,temperature=0.8)
+            response = llm.generate(test_prompt,temperature=rf_temp)
             if(task=="list_func" or task=="1d_arc"):
                 prediction = extract_list_substring(response)
             else:
@@ -98,8 +101,8 @@ for di,datum in enumerate(tqdm(data)):
         
             if(prediction is not None and prediction==example['output']):
                 rule_score+=1
-            rule_list.append(rule)
-            rule_score_list.append(rule_score)
+        rule_list.append(rule)
+        rule_score_list.append(rule_score)
 
     sorted_list = list(zip(rule_score_list,rule_list))
     sorted_list.sort(reverse=True)
@@ -109,7 +112,7 @@ for di,datum in enumerate(tqdm(data)):
     for ei,example in enumerate(datum['test']):
         test_prompt = prompts[task]["apply_rule"]+"\n"+rule+"\n"
         test_prompt = test_prompt+ "Input: "+ str(example['input'])+"\n"
-        response = llm.generate(test_prompt,temperature=0.8)
+        response = llm.generate(test_prompt,temperature=rf_temp)
         if(task=="list_func" or task=="1d_arc"):
             prediction = extract_list_substring(response)
         else:
@@ -122,8 +125,10 @@ for di,datum in enumerate(tqdm(data)):
         data[di]['test'][ei]["ir-output"] = prediction
 
 accuracy = round(num_corr/num_test,3)
-
+print("Temp",rg_temp,rf_temp)
 print("Accuracy:",accuracy)
+print("Cost:",llm.get_cost())
+
 
 output_dir = "./outputs"
 
